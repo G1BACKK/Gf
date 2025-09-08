@@ -1,13 +1,14 @@
 import os
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
-import openai
+from groq import Groq  # Groq client
 
-# Load API keys from Render Environment Variables
+# Load API keys
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-OPENAI_KEY = os.getenv("OPENAI_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-openai.api_key = OPENAI_KEY
+# Initialize Groq client
+client = Groq(api_key=GROQ_API_KEY)
 
 
 # Function to handle messages
@@ -15,23 +16,23 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_msg = update.message.text
 
     try:
-        # Send message to OpenAI
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # use gpt-3.5-turbo (free credits available)
+        # Send message to Groq (LLaMA 3 model)
+        response = client.chat.completions.create(
+            model="llama3-70b-8192",   # big + free model
             messages=[
                 {"role": "system", "content": "तुम एक प्यारी, मजेदार गर्लफ्रेंड हो। हमेशा हिंदी में क्यूट, प्यार भरे और रोमांटिक अंदाज़ में जवाब दो ❤️"},
                 {"role": "user", "content": user_msg}
-            ]
+            ],
+            temperature=0.7,
+            max_tokens=512,
         )
 
-        reply_text = response["choices"][0]["message"]["content"]
+        reply_text = response.choices[0].message.content.strip()
 
     except Exception as e:
-        # Print error in console for debugging
         print(f"Error: {e}")
         reply_text = f"सॉरी जान 🥺, दिक्कत आ गई: {str(e)}"
 
-    # Send reply back to Telegram user
     await update.message.reply_text(reply_text)
 
 
@@ -40,16 +41,15 @@ def main():
     if not TELEGRAM_TOKEN:
         print("❌ TELEGRAM_TOKEN missing!")
         return
-    if not OPENAI_KEY:
-        print("❌ OPENAI_KEY missing!")
+    if not GROQ_API_KEY:
+        print("❌ GROQ_API_KEY missing!")
         return
 
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # Handle all text messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
 
-    print("🤖 Bot is running...")
+    print("🤖 Hindi Girlfriend Bot (Groq) is running...")
     app.run_polling()
 
 
